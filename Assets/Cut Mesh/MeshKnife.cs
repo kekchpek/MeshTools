@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class MeshKnife : MonoBehaviour
@@ -7,6 +8,8 @@ public class MeshKnife : MonoBehaviour
     [SerializeField] private Transform[] _basePoints;
 
     [SerializeField] private MeshFilter _cutMeshFilter;
+
+    [SerializeField] private Material _cutMaterial;
 
     public bool Initialized => _basePoints != null && _basePoints.Length == 3;
 
@@ -57,6 +60,9 @@ public class MeshKnife : MonoBehaviour
         List<int> newMeshTriangles = new List<int>();
         List<Vector2> newMeshUv = new List<Vector2>();
         List<Vector3> newMeshNormals = new List<Vector3>();
+        Plane cutPlane = new Plane(_basePoints[0].position, _basePoints[1].position, _basePoints[2].position);
+
+        List<Vector3> intersectionPoints = new List<Vector3>();
 
         for (int i = 0; i < _cutMeshFilter.sharedMesh.triangles.Length; i+=3)
         {
@@ -69,7 +75,6 @@ public class MeshKnife : MonoBehaviour
             Vector3 v3 = _cutMeshFilter.sharedMesh.vertices[_cutMeshFilter.sharedMesh.triangles[i + 2]];
             v3.Scale(_cutMeshFilter.transform.localScale);
             v3 += _cutMeshFilter.transform.position;
-            Plane cutPlane = new Plane(_basePoints[0].position, _basePoints[1].position, _basePoints[2].position);
             Vector2 uv1 = _cutMeshFilter.sharedMesh.uv[_cutMeshFilter.sharedMesh.triangles[i]];
             Vector2 uv2 = _cutMeshFilter.sharedMesh.uv[_cutMeshFilter.sharedMesh.triangles[i + 1]];
             Vector2 uv3 = _cutMeshFilter.sharedMesh.uv[_cutMeshFilter.sharedMesh.triangles[i + 2]];
@@ -119,32 +124,34 @@ public class MeshKnife : MonoBehaviour
                 cutPlane.Raycast(r1, out float d1);
                 cutPlane.Raycast(r2, out float d2);
                 cutPlane.Raycast(r3, out float d3);
-                List<Vector3> intersectionPoints = new List<Vector3>();
+                List<Vector3> intersectionCouple = new List<Vector3>();
                 List<Vector2> intersectionUv = new List<Vector2>();
                 if (d1 > 0 && d1 < (v2 - v1).magnitude)
                 {
-                    intersectionPoints.Add(r1.origin + r1.direction * d1);
+                    intersectionCouple.Add(r1.origin + r1.direction * d1);
                     intersectionUv.Add(uv1 + (uv2 - uv1) * d1 / ((v2-v1).magnitude));
                 }
                 if (d2 > 0 && d2 < (v3 - v2).magnitude)
                 {
-                    intersectionPoints.Add(r2.origin + r2.direction * d2);
+                    intersectionCouple.Add(r2.origin + r2.direction * d2);
                     intersectionUv.Add(uv2 + (uv3 - uv2) * d2 / ((v3 - v2).magnitude));
                 }
                 if (d3 > 0 && d3 < (v1 - v3).magnitude)
                 {
-                    intersectionPoints.Add(r3.origin + r3.direction * d3);
+                    intersectionCouple.Add(r3.origin + r3.direction * d3);
                     intersectionUv.Add(uv3 + (uv1 - uv3) * d3 / ((v1 - v3).magnitude));
                 }
-                Debug.Assert(intersectionPoints.Count == 2);
-                Vector3 intersectionNormal = Vector3.Cross(intersectionPoints[0] - intersectionPoints[1], intersectionPoints[0] - v1);
+                Debug.Assert(intersectionCouple.Count == 2);
+                Vector3 intersectionNormal = Vector3.Cross(intersectionCouple[0] - intersectionCouple[1], intersectionCouple[0] - v1);
+
+                intersectionPoints.AddRange(intersectionCouple);
                 
-                sourceMeshVertices.AddRange(intersectionPoints);
+                sourceMeshVertices.AddRange(intersectionCouple);
                 sourceMeshUv.AddRange(intersectionUv);
                 sourceMeshNormals.Add(intersectionNormal);
                 sourceMeshNormals.Add(intersectionNormal);
 
-                newMeshVertices.AddRange(intersectionPoints);
+                newMeshVertices.AddRange(intersectionCouple);
                 newMeshUv.AddRange(intersectionUv);
                 newMeshNormals.Add(intersectionNormal);
                 newMeshNormals.Add(intersectionNormal);
@@ -169,7 +176,7 @@ public class MeshKnife : MonoBehaviour
                 distributePoint(sideV2, v2, normal2, uv2);
                 distributePoint(sideV3, v3, normal3, uv3);
 
-                if (!sideV1 && sideV2 && sideV3)
+                if (!(sideV1 ^ sideV2 ^ sideV3))
                 {
                     int c = newMeshVertices.Count;
                     newMeshTriangles.Add(c - 3);
@@ -183,38 +190,11 @@ public class MeshKnife : MonoBehaviour
                     sourceMeshTriangles.Add(c1 - 1);
                     sourceMeshTriangles.Add(c1 - 3);
                     sourceMeshTriangles.Add(c1 - 4);
-                }
-                if (sideV1 && !sideV2 && sideV3)
-                {
-                    int c = newMeshVertices.Count;
-                    newMeshTriangles.Add(c - 3);
-                    newMeshTriangles.Add(c - 2);
-                    newMeshTriangles.Add(c - 1);
-
-                    int c1 = sourceMeshVertices.Count;
                     sourceMeshTriangles.Add(c1 - 1);
                     sourceMeshTriangles.Add(c1 - 2);
-                    sourceMeshTriangles.Add(c1 - 3);
-                    sourceMeshTriangles.Add(c1 - 1);
-                    sourceMeshTriangles.Add(c1 - 3);
                     sourceMeshTriangles.Add(c1 - 4);
                 }
-                if (sideV1 && sideV2 && !sideV3)
-                {
-                    int c = newMeshVertices.Count;
-                    newMeshTriangles.Add(c - 3);
-                    newMeshTriangles.Add(c - 2);
-                    newMeshTriangles.Add(c - 1);
-
-                    int c1 = sourceMeshVertices.Count;
-                    sourceMeshTriangles.Add(c1 - 1);
-                    sourceMeshTriangles.Add(c1 - 2);
-                    sourceMeshTriangles.Add(c1 - 3);
-                    sourceMeshTriangles.Add(c1 - 1);
-                    sourceMeshTriangles.Add(c1 - 3);
-                    sourceMeshTriangles.Add(c1 - 4);
-                }
-                if (sideV1 && !sideV2 && !sideV3)
+                else
                 {
                     int c = sourceMeshVertices.Count;
                     sourceMeshTriangles.Add(c - 3);
@@ -228,35 +208,8 @@ public class MeshKnife : MonoBehaviour
                     newMeshTriangles.Add(c1 - 2);
                     newMeshTriangles.Add(c1 - 3);
                     newMeshTriangles.Add(c1 - 4);
-                }
-                if (!sideV1 && sideV2 && !sideV3)
-                {
-                    int c = sourceMeshVertices.Count;
-                    sourceMeshTriangles.Add(c - 3);
-                    sourceMeshTriangles.Add(c - 2);
-                    sourceMeshTriangles.Add(c - 1);
-
-                    int c1 = newMeshVertices.Count;
                     newMeshTriangles.Add(c1 - 1);
                     newMeshTriangles.Add(c1 - 2);
-                    newMeshTriangles.Add(c1 - 3);
-                    newMeshTriangles.Add(c1 - 2);
-                    newMeshTriangles.Add(c1 - 3);
-                    newMeshTriangles.Add(c1 - 4);
-                }
-                if (!sideV1 && !sideV2 && sideV3)
-                {
-                    int c = sourceMeshVertices.Count;
-                    sourceMeshTriangles.Add(c - 3);
-                    sourceMeshTriangles.Add(c - 2);
-                    sourceMeshTriangles.Add(c - 1);
-
-                    int c1 = newMeshVertices.Count;
-                    newMeshTriangles.Add(c1 - 1);
-                    newMeshTriangles.Add(c1 - 2);
-                    newMeshTriangles.Add(c1 - 3);
-                    newMeshTriangles.Add(c1 - 2);
-                    newMeshTriangles.Add(c1 - 3);
                     newMeshTriangles.Add(c1 - 4);
                 }
             }
@@ -273,29 +226,81 @@ public class MeshKnife : MonoBehaviour
             newMeshTriangles.Add(newMeshTriangles[sc1 - i - 1]);
         }
 
-        Mesh m = new Mesh();
-        m.Clear();
-        _cutMeshFilter.sharedMesh = Instantiate(m);
-        _cutMeshFilter.sharedMesh.vertices = sourceMeshVertices.ToArray();
-        _cutMeshFilter.sharedMesh.triangles = sourceMeshTriangles.ToArray();
-        _cutMeshFilter.sharedMesh.uv = sourceMeshUv.ToArray();
-        _cutMeshFilter.sharedMesh.normals = sourceMeshNormals.ToArray();
-
-
-        var sourceCollider = _cutMeshFilter.GetComponent<Collider>();
-        MeshCollider sourceMeshCollider = null;
-
-        if (sourceCollider != null)
+        Vector3 revertedScale = new Vector3(
+            1f / _cutMeshFilter.transform.localScale.x,
+            1f / _cutMeshFilter.transform.localScale.y,
+            1f / _cutMeshFilter.transform.localScale.z);
+        for (int i = 0; i < newMeshVertices.Count; i++)
         {
-            DestroyImmediate(sourceCollider);
-            sourceMeshCollider = _cutMeshFilter.gameObject.AddComponent<MeshCollider>();
-            sourceMeshCollider.sharedMesh = _cutMeshFilter.sharedMesh;
-            sourceMeshCollider.convex = true;
+            newMeshVertices[i] -= _cutMeshFilter.transform.position;
+            newMeshVertices[i].Scale(revertedScale);
+        }
+        for (int i = 0; i < sourceMeshVertices.Count; i++)
+        {
+            sourceMeshVertices[i] -= _cutMeshFilter.transform.position;
+            sourceMeshVertices[i].Scale(revertedScale);
+        }
+        for (int i = 0; i < intersectionPoints.Count; i++)
+        {
+            intersectionPoints[i] -= _cutMeshFilter.transform.position;
+            intersectionPoints[i].Scale(revertedScale);
         }
 
         if (newMeshVertices != null && newMeshVertices.Count > 0)
         {
+
+            Mesh m = new Mesh();
+            m.Clear();
+            _cutMeshFilter.sharedMesh = Instantiate(m);
+            _cutMeshFilter.sharedMesh.vertices = sourceMeshVertices.ToArray();
+            _cutMeshFilter.sharedMesh.triangles = sourceMeshTriangles.ToArray();
+            _cutMeshFilter.sharedMesh.uv = sourceMeshUv.ToArray();
+            _cutMeshFilter.sharedMesh.normals = sourceMeshNormals.ToArray();
+
+
+            var sourceCollider = _cutMeshFilter.GetComponent<Collider>();
+            MeshCollider sourceMeshCollider = null;
+
+            if (sourceCollider != null)
+            {
+                DestroyImmediate(sourceCollider);
+                sourceMeshCollider = _cutMeshFilter.gameObject.AddComponent<MeshCollider>();
+                sourceMeshCollider.sharedMesh = _cutMeshFilter.sharedMesh;
+                sourceMeshCollider.convex = true;
+            }
+
+            var sourceRigidbody = _cutMeshFilter.GetComponent<Rigidbody>();
+            sourceRigidbody.velocity = cutPlane.normal * 2f;
+
+            GameObject sourceCutPlaneObj = new GameObject("cutPlane");
+            sourceCutPlaneObj.transform.parent = _cutMeshFilter.transform;
+            sourceCutPlaneObj.transform.localPosition = Vector3.zero;
+            MeshFilter sourceCutPlaneMeshFilter = sourceCutPlaneObj.AddComponent<MeshFilter>();
+            Mesh sourceCutPlaneMesh = new Mesh();
+            sourceCutPlaneMesh.Clear();
+            sourceCutPlaneMesh.vertices = intersectionPoints.ToArray();
+            List<int> sourceCutMeshTriangles = new List<int>();
+            for (int i = 1; i < intersectionPoints.Count - 1; i++) 
+            {
+                sourceCutMeshTriangles.Add(0);
+                sourceCutMeshTriangles.Add(i);
+                sourceCutMeshTriangles.Add(i + 1);
+                sourceCutMeshTriangles.Add(i + 1);
+                sourceCutMeshTriangles.Add(i);
+                sourceCutMeshTriangles.Add(0);
+            }
+            sourceCutPlaneMesh.triangles = sourceCutMeshTriangles.ToArray();
+            sourceCutPlaneMesh.normals = Enumerable.Repeat<Vector3>(
+                Vector3.Cross(intersectionPoints[0] - intersectionPoints[1], intersectionPoints[0] - intersectionPoints[2]).normalized,
+                intersectionPoints.Count).ToArray();
+            sourceCutPlaneMeshFilter.sharedMesh = sourceCutPlaneMesh;
+            MeshRenderer sourceCutPlaneMeshRenderer = sourceCutPlaneObj.AddComponent<MeshRenderer>();
+            sourceCutPlaneMeshRenderer.material = _cutMaterial;
+
+
+            //new
             GameObject newMeshGameObject = new GameObject("newMesh");
+            newMeshGameObject.transform.position = _cutMeshFilter.transform.position;
             MeshFilter newMeshFilter = newMeshGameObject.AddComponent<MeshFilter>();
             newMeshFilter.sharedMesh = Instantiate(m);
             newMeshFilter.sharedMesh.vertices = newMeshVertices.ToArray();
@@ -308,14 +313,19 @@ public class MeshKnife : MonoBehaviour
             {
                 var newMeshCollider = newMeshGameObject.AddComponent<MeshCollider>();
                 newMeshCollider.sharedMesh = newMeshFilter.sharedMesh;
+                newMeshCollider.sharedMaterial = sourceMeshCollider.sharedMaterial;
                 newMeshCollider.convex = true;
             }
 
-            var sourceRigidbody = _cutMeshFilter.GetComponent<Rigidbody>();
             if (sourceRigidbody != null)
             {
-                newMeshGameObject.AddComponent<Rigidbody>();
+                Rigidbody newMeshRigidbody = newMeshGameObject.AddComponent<Rigidbody>();
+                newMeshRigidbody.velocity = -cutPlane.normal * 2f;
             }
+
+            GameObject newCutPlaneObj = Instantiate(sourceCutPlaneObj);
+            newCutPlaneObj.transform.parent = newMeshGameObject.transform;
+            newCutPlaneObj.transform.localPosition = Vector3.zero;
         }
 
     }

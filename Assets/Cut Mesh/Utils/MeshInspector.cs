@@ -8,6 +8,14 @@ public class MeshInspector : MonoBehaviour
     [HideInInspector]
     private int _triangle;
 
+    public int TrinangleIndex => _triangle;
+
+    [SerializeField]
+    [HideInInspector]
+    private int _vertex;
+
+    public int VertexIndex => _vertex;
+
     [SerializeField]
     private MeshFilter _meshFilter;
 
@@ -20,6 +28,13 @@ public class MeshInspector : MonoBehaviour
             _triangle = 0;
     }
 
+    public void NextVertex()
+    {
+        _vertex++;
+        if (_vertex == _meshFilter.sharedMesh.vertices.Length)
+            _vertex = 0;
+    }
+
     private void OnDrawGizmos()
     {
         if (_meshFilter == null)
@@ -28,13 +43,17 @@ public class MeshInspector : MonoBehaviour
         Vector3[] vertices = _meshFilter.sharedMesh.vertices;
         int[] triangles = _meshFilter.sharedMesh.triangles;
 
+        Vector3 scale = _meshFilter.transform.localScale;
+        Vector3 origin = _meshFilter.transform.position;
+        
+
         Mesh m = new Mesh();
         m.Clear();
         m.vertices = new Vector3[]
         {
-            MathUtils.transformVertexFromScaledOrigin(vertices[triangles[_triangle * 3]], _meshFilter.transform.localScale, _meshFilter.transform.position),
-            MathUtils.transformVertexFromScaledOrigin(vertices[triangles[_triangle * 3 + 1]], _meshFilter.transform.localScale, _meshFilter.transform.position),
-            MathUtils.transformVertexFromScaledOrigin(vertices[triangles[_triangle * 3 + 2]], _meshFilter.transform.localScale, _meshFilter.transform.position)
+            MathUtils.transformVertexFromScaledOrigin(vertices[triangles[_triangle * 3]], scale, origin),
+            MathUtils.transformVertexFromScaledOrigin(vertices[triangles[_triangle * 3 + 1]], scale, origin),
+            MathUtils.transformVertexFromScaledOrigin(vertices[triangles[_triangle * 3 + 2]], scale, origin)
         };
         m.triangles = new int[]
         {
@@ -43,5 +62,10 @@ public class MeshInspector : MonoBehaviour
         m.normals = new Vector3[] { new Vector3(0, 1, 0), new Vector3(0, 1, 0), new Vector3(0, 1, 0) };
         Gizmos.color = new Color(0, 0, 1);
         Gizmos.DrawMesh(m);
+
+
+
+        Gizmos.DrawSphere(
+            MathUtils.transformVertexFromScaledOrigin(vertices[_vertex], scale, origin), 0.1f);
     }
 }

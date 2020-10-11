@@ -21,13 +21,14 @@ public class MeshKnife : MonoBehaviour
             Side = side;
         }
 
-        public VertexData(Mesh mesh, int vertexIntex, Plane plane)
+        public VertexData(Mesh mesh, int vertexIntex, Plane plane, Vector3 scale, Vector3 origin)
         {
             if (vertexIntex > mesh.vertexCount)
                 throw new ArgumentException($"There is no vertex with index {vertexIntex} in {nameof(mesh)}. {nameof(mesh)} vertex count is {mesh.vertexCount}");
             Coordinates = mesh.vertices[vertexIntex];
             Normal = mesh.normals[vertexIntex];
             UV = mesh.uv[vertexIntex];
+            Coordinates = MathUtils.transformVertexFromScaledOrigin(Coordinates, scale, origin);
             Side = plane.GetSide(Coordinates);
         }
 
@@ -47,6 +48,7 @@ public class MeshKnife : MonoBehaviour
             }
             else
             {
+                Debug.Assert(!(plane.GetSide(start.Coordinates) ^ plane.GetSide(end.Coordinates)));
                 intersection = default;
                 return false;
             }
@@ -59,7 +61,7 @@ public class MeshKnife : MonoBehaviour
 
         public override int GetHashCode()
         {
-            return Normal.GetHashCode() + UV.GetHashCode() + Coordinates.GetHashCode();
+            return Normal.GetHashCode() + UV.GetHashCode() + Coordinates.GetHashCode() + Side.GetHashCode();
         }
     }
 
@@ -131,8 +133,7 @@ public class MeshKnife : MonoBehaviour
             List<VertexData> polygon = new List<VertexData>();
             for(int j = 0; j < 3; j++)
             {
-                VertexData vertex = new VertexData(sourceMesh, sourceMesh.triangles[i + j], cutPlane);
-                vertex.Coordinates = MathUtils.transformVertexFromScaledOrigin(vertex.Coordinates, scale, origin);
+                VertexData vertex = new VertexData(sourceMesh, sourceMesh.triangles[i + j], cutPlane, scale, origin);
                 polygon.Add(vertex);
             }
             if (polygon[0].Side && polygon[1].Side && polygon[2].Side)
@@ -165,13 +166,13 @@ public class MeshKnife : MonoBehaviour
                 Debug.Assert(polygon.Count == 5);
 
                 VertexData basePoint = polygon[intersectionIndicies[0]];
-                for (int j = 1; j < polygon.Count; j++)
+                for (int j = 1; j < polygon.Count - 1; j++)
                 {
                     int index = (intersectionIndicies[0] + j) % polygon.Count;
                     int nextIndex = (index + 1) % polygon.Count;
                     VertexData current = polygon[index];
                     VertexData next = polygon[nextIndex];
-                    if (current.Side && index != intersectionIndicies[1])
+                    if (current.Side)
                     {
                         addTriangle(ref sourceVertices, ref sourceMeshTriangles,
                             new VertexData[] { basePoint, current, next });
@@ -313,7 +314,10 @@ public class MeshKnife : MonoBehaviour
         Debug.Assert(triangle.Length == 3);
         for(int i = 0; i < triangle.Length; i++)
         {
-            int index = verticies.IndexOf(triangle[i]);
+            int index = verticies.FindIndex(v =>
+            v.Coordinates == triangle[i].Coordinates &&
+            v.UV == triangle[i].UV &&
+            v.Normal == triangle[i].Normal);
             if (index < 0)
             {
                 verticies.Add(triangle[i]);
@@ -324,12 +328,5 @@ public class MeshKnife : MonoBehaviour
                 triangles.Add(index);
             }
         }
-        verticies.Add(triangle[0]);
-        verticies.Add(triangle[1]);
-        verticies.Add(triangle[2]);
-        int c = verticies.Count;
-        triangles.Add(c - 3);
-        triangles.Add(c - 2);
-        triangles.Add(c - 1);
     }
 }

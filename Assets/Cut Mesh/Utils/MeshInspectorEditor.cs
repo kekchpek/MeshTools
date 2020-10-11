@@ -17,10 +17,17 @@ public class MeshInspectorEditor : Editor
 
         var t = (target as MeshInspector);
 
-        if (GUILayout.Button("Next"))
+        if (GUILayout.Button("Next vertex"))
+        {
+            t.NextVertex();
+        }
+        if (GUILayout.Button("Next triangle"))
         {
             t.NextTriangle();
         }
+
+        EditorGUILayout.LabelField($"Triangle: {t.TrinangleIndex}");
+        EditorGUILayout.LabelField($"Vertex: {t.VertexIndex}");
 
         serializedObject.ApplyModifiedProperties();
     }

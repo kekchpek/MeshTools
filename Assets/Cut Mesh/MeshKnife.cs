@@ -1,15 +1,75 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
 public class MeshKnife : MonoBehaviour
 {
 
+    private struct VertexData
+    {
+        public Vector3 Coordinates { get; set; }
+        public Vector3 Normal { get; set; }
+        public Vector2 UV { get; set; }
+        public bool Side { get; set; }
+
+        public VertexData(Vector3 coordinates, Vector3 normal, Vector3 uv, bool side)
+        {
+            Coordinates = coordinates;
+            Normal = normal;
+            UV = uv;
+            Side = side;
+        }
+
+        public VertexData(Mesh mesh, int vertexIntex, Plane plane)
+        {
+            if (vertexIntex > mesh.vertexCount)
+                throw new ArgumentException($"There is no vertex with index {vertexIntex} in {nameof(mesh)}. {nameof(mesh)} vertex count is {mesh.vertexCount}");
+            Coordinates = mesh.vertices[vertexIntex];
+            Normal = mesh.normals[vertexIntex];
+            UV = mesh.uv[vertexIntex];
+            Side = plane.GetSide(Coordinates);
+        }
+
+        public static bool RaycastPlane(VertexData start, VertexData end, Plane plane, out VertexData intersection)
+        {
+            Vector3 dir = end.Coordinates - start.Coordinates;
+            Vector2 uvDir = end.UV - start.UV;
+            Ray r = new Ray(start.Coordinates, dir);
+            plane.Raycast(r, out float d);
+            if (d > 0 && d < dir.magnitude)
+            {
+                intersection = new VertexData(start.Coordinates + dir.normalized * d,
+                    Vector3.zero,
+                    Vector3.Lerp(start.UV, end.UV, d / dir.magnitude),
+                    plane.GetSide(start.Coordinates + dir.normalized * d));
+                return true;
+            }
+            else
+            {
+                intersection = default;
+                return false;
+            }
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj.GetHashCode() == this.GetHashCode();
+        }
+
+        public override int GetHashCode()
+        {
+            return Normal.GetHashCode() + UV.GetHashCode() + Coordinates.GetHashCode();
+        }
+    }
+
     [SerializeField] private Transform[] _basePoints;
 
     [SerializeField] private MeshFilter _cutMeshFilter;
 
     [SerializeField] private Material _cutMaterial;
+
+    [SerializeField] private float _cutForce;
 
     public bool Initialized => _basePoints != null && _basePoints.Length == 3;
 
@@ -52,281 +112,224 @@ public class MeshKnife : MonoBehaviour
 
     public void Cut()
     {
-        List<Vector3> sourceMeshVertices = new List<Vector3>();
+        List<VertexData> sourceVertices = new List<VertexData>();
         List<int> sourceMeshTriangles = new List<int>();
-        List<Vector2> sourceMeshUv = new List<Vector2>();
-        List<Vector3> sourceMeshNormals = new List<Vector3>();
-        List<Vector3> newMeshVertices = new List<Vector3>();
+
+        List<VertexData> newVerticies = new List<VertexData>();
         List<int> newMeshTriangles = new List<int>();
-        List<Vector2> newMeshUv = new List<Vector2>();
-        List<Vector3> newMeshNormals = new List<Vector3>();
+
         Plane cutPlane = new Plane(_basePoints[0].position, _basePoints[1].position, _basePoints[2].position);
 
-        List<Vector3> intersectionPoints = new List<Vector3>();
+        List<VertexData> intersectionPoints = new List<VertexData>();
 
-        for (int i = 0; i < _cutMeshFilter.sharedMesh.triangles.Length; i+=3)
+        Vector3 scale = _cutMeshFilter.transform.localScale;
+        Vector3 origin = _cutMeshFilter.transform.position;
+
+        Mesh sourceMesh = _cutMeshFilter.sharedMesh;
+        for (int i = 0; i < sourceMesh.triangles.Length; i+=3)
         {
-            Vector3 v1 = _cutMeshFilter.sharedMesh.vertices[_cutMeshFilter.sharedMesh.triangles[i]];
-            v1.Scale(_cutMeshFilter.transform.localScale);
-            v1 += _cutMeshFilter.transform.position;
-            Vector3 v2 = _cutMeshFilter.sharedMesh.vertices[_cutMeshFilter.sharedMesh.triangles[i + 1]];
-            v2.Scale(_cutMeshFilter.transform.localScale);
-            v2 += _cutMeshFilter.transform.position;
-            Vector3 v3 = _cutMeshFilter.sharedMesh.vertices[_cutMeshFilter.sharedMesh.triangles[i + 2]];
-            v3.Scale(_cutMeshFilter.transform.localScale);
-            v3 += _cutMeshFilter.transform.position;
-            Vector2 uv1 = _cutMeshFilter.sharedMesh.uv[_cutMeshFilter.sharedMesh.triangles[i]];
-            Vector2 uv2 = _cutMeshFilter.sharedMesh.uv[_cutMeshFilter.sharedMesh.triangles[i + 1]];
-            Vector2 uv3 = _cutMeshFilter.sharedMesh.uv[_cutMeshFilter.sharedMesh.triangles[i + 2]];
-            Vector3 normal1 = _cutMeshFilter.sharedMesh.normals[_cutMeshFilter.sharedMesh.triangles[i]];
-            Vector3 normal2 = _cutMeshFilter.sharedMesh.normals[_cutMeshFilter.sharedMesh.triangles[i + 1]];
-            Vector3 normal3 = _cutMeshFilter.sharedMesh.normals[_cutMeshFilter.sharedMesh.triangles[i + 2]];
-            bool sideV1 = cutPlane.GetSide(v1);
-            bool sideV2 = cutPlane.GetSide(v2);
-            bool sideV3 = cutPlane.GetSide(v3);
-            if (sideV1 && sideV2 && sideV3)
+            List<VertexData> polygon = new List<VertexData>();
+            for(int j = 0; j < 3; j++)
             {
-                sourceMeshVertices.Add(v1);
-                sourceMeshVertices.Add(v2);
-                sourceMeshVertices.Add(v3);
-                sourceMeshNormals.Add(normal1);
-                sourceMeshNormals.Add(normal2);
-                sourceMeshNormals.Add(normal3);
-                sourceMeshUv.Add(uv1);
-                sourceMeshUv.Add(uv2);
-                sourceMeshUv.Add(uv3);
-                int c = sourceMeshVertices.Count;
-                sourceMeshTriangles.Add(c - 3);
-                sourceMeshTriangles.Add(c - 2);
-                sourceMeshTriangles.Add(c - 1);
+                VertexData vertex = new VertexData(sourceMesh, sourceMesh.triangles[i + j], cutPlane);
+                vertex.Coordinates = MathUtils.transformVertexFromScaledOrigin(vertex.Coordinates, scale, origin);
+                polygon.Add(vertex);
             }
-            else if (!sideV1 && !sideV2 && !sideV3)
+            if (polygon[0].Side && polygon[1].Side && polygon[2].Side)
             {
-                newMeshVertices.Add(v1);
-                newMeshVertices.Add(v2);
-                newMeshVertices.Add(v3);
-                newMeshNormals.Add(normal1);
-                newMeshNormals.Add(normal2);
-                newMeshNormals.Add(normal3);
-                newMeshUv.Add(uv1);
-                newMeshUv.Add(uv2);
-                newMeshUv.Add(uv3);
-                int c = newMeshVertices.Count;
-                newMeshTriangles.Add(c - 3);
-                newMeshTriangles.Add(c - 2);
-                newMeshTriangles.Add(c - 1);
+                addTriangle(ref sourceVertices, ref sourceMeshTriangles, polygon.ToArray());
+            }
+            else if (!polygon[0].Side && !polygon[1].Side && !polygon[2].Side)
+            {
+                addTriangle(ref newVerticies, ref newMeshTriangles, polygon.ToArray());
             }
             else
             {
-                Ray r1 = new Ray(v1, v2 - v1);
-                Ray r2 = new Ray(v2, v3 - v2);
-                Ray r3 = new Ray(v3, v1 - v3);
-                cutPlane.Raycast(r1, out float d1);
-                cutPlane.Raycast(r2, out float d2);
-                cutPlane.Raycast(r3, out float d3);
-                List<Vector3> intersectionCouple = new List<Vector3>();
-                List<Vector2> intersectionUv = new List<Vector2>();
-                if (d1 > 0 && d1 < (v2 - v1).magnitude)
+                Vector3 intersectionNormal = -Vector3.Cross(
+                    polygon[0].Coordinates - polygon[1].Coordinates,
+                    polygon[0].Coordinates - polygon[2].Coordinates).normalized;
+                List<int> intersectionIndicies = new List<int>();
+                for (int j = 0; j < polygon.Count; j++)
                 {
-                    intersectionCouple.Add(r1.origin + r1.direction * d1);
-                    intersectionUv.Add(uv1 + (uv2 - uv1) * d1 / ((v2-v1).magnitude));
-                }
-                if (d2 > 0 && d2 < (v3 - v2).magnitude)
-                {
-                    intersectionCouple.Add(r2.origin + r2.direction * d2);
-                    intersectionUv.Add(uv2 + (uv3 - uv2) * d2 / ((v3 - v2).magnitude));
-                }
-                if (d3 > 0 && d3 < (v1 - v3).magnitude)
-                {
-                    intersectionCouple.Add(r3.origin + r3.direction * d3);
-                    intersectionUv.Add(uv3 + (uv1 - uv3) * d3 / ((v1 - v3).magnitude));
-                }
-                Debug.Assert(intersectionCouple.Count == 2);
-                Vector3 intersectionNormal = Vector3.Cross(intersectionCouple[0] - intersectionCouple[1], intersectionCouple[0] - v1);
-
-                intersectionPoints.AddRange(intersectionCouple);
-                
-                sourceMeshVertices.AddRange(intersectionCouple);
-                sourceMeshUv.AddRange(intersectionUv);
-                sourceMeshNormals.Add(intersectionNormal);
-                sourceMeshNormals.Add(intersectionNormal);
-
-                newMeshVertices.AddRange(intersectionCouple);
-                newMeshUv.AddRange(intersectionUv);
-                newMeshNormals.Add(intersectionNormal);
-                newMeshNormals.Add(intersectionNormal);
-
-                void distributePoint(bool side, Vector3 point, Vector3 normal, Vector2 uv)
-                {
-                    if (side)
+                    int next = (j + 1) % polygon.Count;
+                    if (VertexData.RaycastPlane(polygon[j], polygon[next], cutPlane, out VertexData intersection))
                     {
-                        sourceMeshVertices.Add(point);
-                        sourceMeshUv.Add(uv);
-                        sourceMeshNormals.Add(normal);
+                        intersection.Normal = intersectionNormal;
+                        polygon.Insert(j + 1, intersection);
+                        intersectionIndicies.Add(j + 1);
+                        if(!intersectionPoints.Contains(intersection))
+                            intersectionPoints.Add(intersection);
+                        j++;
+                    }
+                }
+                Debug.Assert(polygon.Count == 5);
+
+                VertexData basePoint = polygon[intersectionIndicies[0]];
+                for (int j = 1; j < polygon.Count; j++)
+                {
+                    int index = (intersectionIndicies[0] + j) % polygon.Count;
+                    int nextIndex = (index + 1) % polygon.Count;
+                    VertexData current = polygon[index];
+                    VertexData next = polygon[nextIndex];
+                    if (current.Side && index != intersectionIndicies[1])
+                    {
+                        addTriangle(ref sourceVertices, ref sourceMeshTriangles,
+                            new VertexData[] { basePoint, current, next });
                     }
                     else
                     {
-                        newMeshVertices.Add(point);
-                        newMeshUv.Add(uv);
-                        newMeshNormals.Add(normal);
+                        addTriangle(ref newVerticies, ref newMeshTriangles,
+                            new VertexData[] { basePoint, current, next });
                     }
-                }
-
-                distributePoint(sideV1, v1, normal1, uv1);
-                distributePoint(sideV2, v2, normal2, uv2);
-                distributePoint(sideV3, v3, normal3, uv3);
-
-                if (!(sideV1 ^ sideV2 ^ sideV3))
-                {
-                    int c = newMeshVertices.Count;
-                    newMeshTriangles.Add(c - 3);
-                    newMeshTriangles.Add(c - 2);
-                    newMeshTriangles.Add(c - 1);
-
-                    int c1 = sourceMeshVertices.Count;
-                    sourceMeshTriangles.Add(c1 - 1);
-                    sourceMeshTriangles.Add(c1 - 2);
-                    sourceMeshTriangles.Add(c1 - 3);
-                    sourceMeshTriangles.Add(c1 - 1);
-                    sourceMeshTriangles.Add(c1 - 3);
-                    sourceMeshTriangles.Add(c1 - 4);
-                    sourceMeshTriangles.Add(c1 - 1);
-                    sourceMeshTriangles.Add(c1 - 2);
-                    sourceMeshTriangles.Add(c1 - 4);
-                }
-                else
-                {
-                    int c = sourceMeshVertices.Count;
-                    sourceMeshTriangles.Add(c - 3);
-                    sourceMeshTriangles.Add(c - 2);
-                    sourceMeshTriangles.Add(c - 1);
-
-                    int c1 = newMeshVertices.Count;
-                    newMeshTriangles.Add(c1 - 1);
-                    newMeshTriangles.Add(c1 - 2);
-                    newMeshTriangles.Add(c1 - 3);
-                    newMeshTriangles.Add(c1 - 2);
-                    newMeshTriangles.Add(c1 - 3);
-                    newMeshTriangles.Add(c1 - 4);
-                    newMeshTriangles.Add(c1 - 1);
-                    newMeshTriangles.Add(c1 - 2);
-                    newMeshTriangles.Add(c1 - 4);
                 }
             }
         }
-
-        int sc = sourceMeshTriangles.Count;
-        for (int i = 0; i < sc; i++)
+        
+        for (int i = 0; i < newVerticies.Count; i++)
         {
-            sourceMeshTriangles.Add(sourceMeshTriangles[sc - i - 1]);
+            VertexData vertex = newVerticies[i];
+            vertex = new VertexData(MathUtils.transformVertexToScaledOrigin(vertex.Coordinates, scale, origin),
+                vertex.Normal,
+                vertex.UV,
+                vertex.Side);
+            newVerticies[i] = vertex;
         }
-        int sc1 = newMeshTriangles.Count;
-        for (int i = 0; i < sc1; i++)
+        for (int i = 0; i < sourceVertices.Count; i++)
         {
-            newMeshTriangles.Add(newMeshTriangles[sc1 - i - 1]);
-        }
-
-        Vector3 revertedScale = new Vector3(
-            1f / _cutMeshFilter.transform.localScale.x,
-            1f / _cutMeshFilter.transform.localScale.y,
-            1f / _cutMeshFilter.transform.localScale.z);
-        for (int i = 0; i < newMeshVertices.Count; i++)
-        {
-            newMeshVertices[i] -= _cutMeshFilter.transform.position;
-            newMeshVertices[i].Scale(revertedScale);
-        }
-        for (int i = 0; i < sourceMeshVertices.Count; i++)
-        {
-            sourceMeshVertices[i] -= _cutMeshFilter.transform.position;
-            sourceMeshVertices[i].Scale(revertedScale);
+            VertexData vertex = sourceVertices[i];
+            vertex = new VertexData(MathUtils.transformVertexToScaledOrigin(vertex.Coordinates, scale, origin),
+                vertex.Normal,
+                vertex.UV,
+                vertex.Side);
+            sourceVertices[i] = vertex;
         }
         for (int i = 0; i < intersectionPoints.Count; i++)
         {
-            intersectionPoints[i] -= _cutMeshFilter.transform.position;
-            intersectionPoints[i].Scale(revertedScale);
+            VertexData vertex = intersectionPoints[i];
+            vertex = new VertexData(MathUtils.transformVertexToScaledOrigin(vertex.Coordinates, scale, origin),
+                vertex.Normal,
+                vertex.UV,
+                vertex.Side);
+            intersectionPoints[i] = vertex;
         }
 
-        if (newMeshVertices != null && newMeshVertices.Count > 0)
+        if (newVerticies != null && newVerticies.Count > 0)
         {
+            bool createCollider = _cutMeshFilter.GetComponent<Collider>() != null;
+            bool createRigidbody = _cutMeshFilter.GetComponent<Rigidbody>() != null;
+            Material material = _cutMeshFilter.GetComponent<MeshRenderer>().sharedMaterial;
+            PhysicMaterial physicMaterial = _cutMeshFilter.GetComponent<Collider>()?.sharedMaterial;
 
-            Mesh m = new Mesh();
-            m.Clear();
-            _cutMeshFilter.sharedMesh = Instantiate(m);
-            _cutMeshFilter.sharedMesh.vertices = sourceMeshVertices.ToArray();
-            _cutMeshFilter.sharedMesh.triangles = sourceMeshTriangles.ToArray();
-            _cutMeshFilter.sharedMesh.uv = sourceMeshUv.ToArray();
-            _cutMeshFilter.sharedMesh.normals = sourceMeshNormals.ToArray();
+            GameObject cutPlaneObj = createCutPlane(intersectionPoints, _cutMaterial);
 
-
-            var sourceCollider = _cutMeshFilter.GetComponent<Collider>();
-            MeshCollider sourceMeshCollider = null;
-
-            if (sourceCollider != null)
-            {
-                DestroyImmediate(sourceCollider);
-                sourceMeshCollider = _cutMeshFilter.gameObject.AddComponent<MeshCollider>();
-                sourceMeshCollider.sharedMesh = _cutMeshFilter.sharedMesh;
-                sourceMeshCollider.convex = true;
-            }
-
-            var sourceRigidbody = _cutMeshFilter.GetComponent<Rigidbody>();
-            sourceRigidbody.velocity = cutPlane.normal * 2f;
-
-            GameObject sourceCutPlaneObj = new GameObject("cutPlane");
-            sourceCutPlaneObj.transform.parent = _cutMeshFilter.transform;
-            sourceCutPlaneObj.transform.localPosition = Vector3.zero;
-            MeshFilter sourceCutPlaneMeshFilter = sourceCutPlaneObj.AddComponent<MeshFilter>();
-            Mesh sourceCutPlaneMesh = new Mesh();
-            sourceCutPlaneMesh.Clear();
-            sourceCutPlaneMesh.vertices = intersectionPoints.ToArray();
-            List<int> sourceCutMeshTriangles = new List<int>();
-            for (int i = 1; i < intersectionPoints.Count - 1; i++) 
-            {
-                sourceCutMeshTriangles.Add(0);
-                sourceCutMeshTriangles.Add(i);
-                sourceCutMeshTriangles.Add(i + 1);
-                sourceCutMeshTriangles.Add(i + 1);
-                sourceCutMeshTriangles.Add(i);
-                sourceCutMeshTriangles.Add(0);
-            }
-            sourceCutPlaneMesh.triangles = sourceCutMeshTriangles.ToArray();
-            sourceCutPlaneMesh.normals = Enumerable.Repeat<Vector3>(
-                Vector3.Cross(intersectionPoints[0] - intersectionPoints[1], intersectionPoints[0] - intersectionPoints[2]).normalized,
-                intersectionPoints.Count).ToArray();
-            sourceCutPlaneMeshFilter.sharedMesh = sourceCutPlaneMesh;
-            MeshRenderer sourceCutPlaneMeshRenderer = sourceCutPlaneObj.AddComponent<MeshRenderer>();
-            sourceCutPlaneMeshRenderer.material = _cutMaterial;
-
-
-            //new
-            GameObject newMeshGameObject = new GameObject("newMesh");
-            newMeshGameObject.transform.position = _cutMeshFilter.transform.position;
-            MeshFilter newMeshFilter = newMeshGameObject.AddComponent<MeshFilter>();
-            newMeshFilter.sharedMesh = Instantiate(m);
-            newMeshFilter.sharedMesh.vertices = newMeshVertices.ToArray();
-            newMeshFilter.sharedMesh.triangles = newMeshTriangles.ToArray();
-            newMeshFilter.sharedMesh.uv = newMeshUv.ToArray();
-            newMeshFilter.sharedMesh.normals = newMeshNormals.ToArray();
-            MeshRenderer newMeshRenderer = newMeshGameObject.AddComponent<MeshRenderer>();
-            newMeshRenderer.sharedMaterial = _cutMeshFilter.GetComponent<MeshRenderer>().sharedMaterial;
-            if (sourceMeshCollider != null)
-            {
-                var newMeshCollider = newMeshGameObject.AddComponent<MeshCollider>();
-                newMeshCollider.sharedMesh = newMeshFilter.sharedMesh;
-                newMeshCollider.sharedMaterial = sourceMeshCollider.sharedMaterial;
-                newMeshCollider.convex = true;
-            }
-
-            if (sourceRigidbody != null)
-            {
-                Rigidbody newMeshRigidbody = newMeshGameObject.AddComponent<Rigidbody>();
-                newMeshRigidbody.velocity = -cutPlane.normal * 2f;
-            }
-
-            GameObject newCutPlaneObj = Instantiate(sourceCutPlaneObj);
-            newCutPlaneObj.transform.parent = newMeshGameObject.transform;
-            newCutPlaneObj.transform.localPosition = Vector3.zero;
+            createCutMeshObject(newVerticies, newMeshTriangles,
+                origin, scale,
+                -cutPlane.normal, _cutForce,
+                createCollider, createRigidbody,
+                material, physicMaterial,
+                cutPlaneObj);
+            createCutMeshObject(sourceVertices, sourceMeshTriangles,
+                origin, scale,
+                cutPlane.normal, _cutForce,
+                createCollider, createRigidbody,
+                material, physicMaterial,
+                cutPlaneObj);
+            DestroyImmediate(cutPlaneObj);
+            DestroyImmediate(_cutMeshFilter.gameObject);
         }
 
+    }
+
+    private static void createCutMeshObject(List<VertexData> vertices, List<int> triangles,
+        Vector3 position, Vector3 scale,
+        Vector3 cutNormal, float cutForce,
+        bool createCollider, bool createRigidbody,
+        Material material, PhysicMaterial physicMaterial,
+        GameObject cutPlane)
+    {
+        GameObject newMeshGameObject = new GameObject("newMesh");
+        newMeshGameObject.transform.position = position;
+        newMeshGameObject.transform.position += cutNormal * 0.01f;
+        newMeshGameObject.transform.localScale = scale;
+        MeshFilter newMeshFilter = newMeshGameObject.AddComponent<MeshFilter>();
+        newMeshFilter.sharedMesh = new Mesh();
+        newMeshFilter.sharedMesh.vertices = vertices.Select(v => v.Coordinates).ToArray();
+        newMeshFilter.sharedMesh.triangles = triangles.ToArray();
+        newMeshFilter.sharedMesh.uv = vertices.Select(v => v.UV).ToArray();
+        newMeshFilter.sharedMesh.normals = vertices.Select(v => v.Normal).ToArray();
+        MeshRenderer newMeshRenderer = newMeshGameObject.AddComponent<MeshRenderer>();
+        newMeshRenderer.sharedMaterial = material;
+        if (createCollider)
+        {
+            var newMeshCollider = newMeshGameObject.AddComponent<MeshCollider>();
+            newMeshCollider.sharedMesh = newMeshFilter.sharedMesh;
+            newMeshCollider.sharedMaterial = physicMaterial;
+            newMeshCollider.convex = true;
+        }
+
+        if (createRigidbody)
+        {
+            Rigidbody newMeshRigidbody = newMeshGameObject.AddComponent<Rigidbody>();
+            newMeshRigidbody.velocity = cutNormal * cutForce;
+        }
+
+        GameObject newCutPlaneObj = Instantiate(cutPlane);
+        newCutPlaneObj.transform.parent = newMeshGameObject.transform;
+        newCutPlaneObj.transform.localPosition = Vector3.zero;
+    }
+
+    private static GameObject createCutPlane(List<VertexData> vertices, Material material)
+    {
+        GameObject cutPlaneObj = new GameObject("cutPlane");
+        cutPlaneObj.transform.localPosition = Vector3.zero;
+        MeshFilter sourceCutPlaneMeshFilter = cutPlaneObj.AddComponent<MeshFilter>();
+        Mesh sourceCutPlaneMesh = new Mesh();
+        sourceCutPlaneMesh.Clear();
+        sourceCutPlaneMesh.vertices = vertices.Select(v => v.Coordinates).ToArray();
+        List<int> sourceCutMeshTriangles = new List<int>();
+        for (int i = 1; i < vertices.Count - 1; i++)
+        {
+            sourceCutMeshTriangles.Add(0);
+            sourceCutMeshTriangles.Add(i);
+            sourceCutMeshTriangles.Add(i + 1);
+            sourceCutMeshTriangles.Add(i + 1);
+            sourceCutMeshTriangles.Add(i);
+            sourceCutMeshTriangles.Add(0);
+        }
+        sourceCutPlaneMesh.triangles = sourceCutMeshTriangles.ToArray();
+        sourceCutPlaneMesh.normals = Enumerable.Repeat<Vector3>(
+            Vector3.Cross(
+                vertices[1].Coordinates - vertices[0].Coordinates,
+                vertices[2].Coordinates - vertices[0].Coordinates).normalized,
+            vertices.Count).ToArray();
+        sourceCutPlaneMeshFilter.sharedMesh = sourceCutPlaneMesh;
+        MeshRenderer sourceCutPlaneMeshRenderer = cutPlaneObj.AddComponent<MeshRenderer>();
+        sourceCutPlaneMeshRenderer.material = material;
+        return cutPlaneObj;
+    }
+
+    private static void addTriangle(ref List<VertexData> verticies, ref List<int> triangles, VertexData[] triangle)
+    {
+        Debug.Assert(triangle.Length == 3);
+        for(int i = 0; i < triangle.Length; i++)
+        {
+            int index = verticies.IndexOf(triangle[i]);
+            if (index < 0)
+            {
+                verticies.Add(triangle[i]);
+                triangles.Add(verticies.Count - 1);
+            }
+            else
+            {
+                triangles.Add(index);
+            }
+        }
+        verticies.Add(triangle[0]);
+        verticies.Add(triangle[1]);
+        verticies.Add(triangle[2]);
+        int c = verticies.Count;
+        triangles.Add(c - 3);
+        triangles.Add(c - 2);
+        triangles.Add(c - 1);
     }
 }

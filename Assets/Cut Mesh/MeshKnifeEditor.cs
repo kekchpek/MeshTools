@@ -1,5 +1,4 @@
-﻿using System.Numerics;
-using UnityEditor;
+﻿using UnityEditor;
 using UnityEngine;
 
 [CustomEditor(typeof(MeshKnife))]

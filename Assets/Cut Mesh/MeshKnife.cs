@@ -158,7 +158,8 @@ public class MeshKnife : MonoBehaviour
                         intersection.Normal = intersectionNormal;
                         polygon.Insert(j + 1, intersection);
                         intersectionIndicies.Add(j + 1);
-                        if(!intersectionPoints.Contains(intersection))
+                        if(intersectionPoints.FindIndex(v =>
+                            intersection.Coordinates == v.Coordinates) < 0)
                             intersectionPoints.Add(intersection);
                         j++;
                     }
@@ -293,9 +294,6 @@ public class MeshKnife : MonoBehaviour
             sourceCutMeshTriangles.Add(0);
             sourceCutMeshTriangles.Add(i);
             sourceCutMeshTriangles.Add(i + 1);
-            sourceCutMeshTriangles.Add(i + 1);
-            sourceCutMeshTriangles.Add(i);
-            sourceCutMeshTriangles.Add(0);
         }
         sourceCutPlaneMesh.triangles = sourceCutMeshTriangles.ToArray();
         sourceCutPlaneMesh.normals = Enumerable.Repeat<Vector3>(

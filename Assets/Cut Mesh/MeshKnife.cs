@@ -151,6 +151,8 @@ public class MeshKnife : MonoBehaviour
                     polygon[0].Coordinates - polygon[1].Coordinates,
                     polygon[0].Coordinates - polygon[2].Coordinates).normalized;
                 List<int> intersectionIndicies = new List<int>();
+
+                // find intersection points
                 for (int j = 0; j < polygon.Count; j++)
                 {
                     int next = (j + 1) % polygon.Count;
@@ -167,6 +169,7 @@ public class MeshKnife : MonoBehaviour
                 }
                 Debug.Assert(polygon.Count == 5);
 
+                // create triangles for new meshes
                 VertexData basePoint = polygon[intersectionIndicies[0]];
                 for (int j = 1; j < polygon.Count - 1; j++)
                 {
@@ -174,7 +177,7 @@ public class MeshKnife : MonoBehaviour
                     int nextIndex = (index + 1) % polygon.Count;
                     VertexData current = polygon[index];
                     VertexData next = polygon[nextIndex];
-                    if (current.Side)
+                    if (current.Side && index != intersectionIndicies[1] || index == intersectionIndicies[1] && next.Side)
                     {
                         addTriangle(ref sourceVertices, ref sourceMeshTriangles,
                             new VertexData[] { basePoint, current, next });

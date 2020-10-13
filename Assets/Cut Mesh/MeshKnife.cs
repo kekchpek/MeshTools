@@ -6,6 +6,7 @@ using UnityEngine;
 public class MeshKnife : MonoBehaviour
 {
 
+    const float EPSILON = 0.00001f;
     private struct VertexData
     {
         public Vector3 Coordinates { get; set; }
@@ -222,21 +223,21 @@ public class MeshKnife : MonoBehaviour
             Material material = _cutMeshFilter.GetComponent<MeshRenderer>().sharedMaterial;
             PhysicMaterial physicMaterial = _cutMeshFilter.GetComponent<Collider>()?.sharedMaterial;
 
-            GameObject cutPlaneObj = createCutPlane(intersectionPoints, _cutMaterial);
+            GameObject cutPlaneSourceObj = createCutPlane(intersectionPoints, _cutMaterial, -cutPlane.normal);
+            GameObject cutPlaneNewObj = createCutPlane(intersectionPoints, _cutMaterial, cutPlane.normal);
 
             createCutMeshObject(newVerticies, newMeshTriangles,
                 origin, scale,
                 -cutPlane.normal, _cutForce,
                 createCollider, createRigidbody,
                 material, physicMaterial,
-                cutPlaneObj);
+                cutPlaneSourceObj);
             createCutMeshObject(sourceVertices, sourceMeshTriangles,
                 origin, scale,
                 cutPlane.normal, _cutForce,
                 createCollider, createRigidbody,
                 material, physicMaterial,
-                cutPlaneObj);
-            DestroyImmediate(cutPlaneObj);
+                cutPlaneNewObj);
             DestroyImmediate(_cutMeshFilter.gameObject);
         }
 
@@ -275,15 +276,37 @@ public class MeshKnife : MonoBehaviour
             newMeshRigidbody.velocity = cutNormal * cutForce;
         }
 
-        GameObject newCutPlaneObj = Instantiate(cutPlane);
-        newCutPlaneObj.transform.parent = newMeshGameObject.transform;
-        newCutPlaneObj.transform.localPosition = Vector3.zero;
+        cutPlane.transform.parent = newMeshGameObject.transform;
+        cutPlane.transform.localPosition = Vector3.zero;
     }
 
-    private static GameObject createCutPlane(List<VertexData> vertices, Material material)
+    private static GameObject createCutPlane(List<VertexData> vertices, Material material, Vector3 cutNormal)
     {
         GameObject cutPlaneObj = new GameObject("cutPlane");
         cutPlaneObj.transform.localPosition = Vector3.zero;
+        VertexData v0 = vertices[0];
+        vertices.Sort((v1, v2) =>
+        {
+            if (v1.Coordinates == v0.Coordinates)
+                return -1;
+            if (v2.Coordinates == v0.Coordinates)
+                return 1;
+            Vector3 cross = Vector3.Cross(v1.Coordinates - v0.Coordinates, v2.Coordinates - v0.Coordinates).normalized;
+            if (Vector3.Dot(cutNormal.normalized, cross) > 1 - EPSILON)
+                return 1;
+            else
+                return -1;
+        });
+        for (int i = 0; i < vertices.Count - 1; i++)
+        {
+            Vector3 edge1 = vertices[i + 1].Coordinates - vertices[i].Coordinates;
+            Vector3 edge2 = vertices[(i + 2) % vertices.Count].Coordinates - vertices[i].Coordinates;
+            if (Vector3.Dot(edge1.normalized, edge2.normalized) > 1 - EPSILON)
+            {
+                vertices.RemoveAt(i + 1);
+                i--;
+            }
+        }
         MeshFilter sourceCutPlaneMeshFilter = cutPlaneObj.AddComponent<MeshFilter>();
         Mesh sourceCutPlaneMesh = new Mesh();
         sourceCutPlaneMesh.Clear();
@@ -296,11 +319,7 @@ public class MeshKnife : MonoBehaviour
             sourceCutMeshTriangles.Add(i + 1);
         }
         sourceCutPlaneMesh.triangles = sourceCutMeshTriangles.ToArray();
-        sourceCutPlaneMesh.normals = Enumerable.Repeat<Vector3>(
-            Vector3.Cross(
-                vertices[1].Coordinates - vertices[0].Coordinates,
-                vertices[2].Coordinates - vertices[0].Coordinates).normalized,
-            vertices.Count).ToArray();
+        sourceCutPlaneMesh.normals = Enumerable.Repeat<Vector3>(cutNormal, vertices.Count).ToArray();
         sourceCutPlaneMeshFilter.sharedMesh = sourceCutPlaneMesh;
         MeshRenderer sourceCutPlaneMeshRenderer = cutPlaneObj.AddComponent<MeshRenderer>();
         sourceCutPlaneMeshRenderer.material = material;

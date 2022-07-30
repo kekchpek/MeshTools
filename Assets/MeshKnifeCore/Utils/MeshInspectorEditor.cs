@@ -1,4 +1,5 @@
-﻿using UnityEditor;
+﻿using MeshKnifeCore.Utils;
+using UnityEditor;
 using UnityEngine;
 
 [CustomEditor(typeof(MeshInspector))]
@@ -26,7 +27,7 @@ public class MeshInspectorEditor : Editor
             t.NextTriangle();
         }
 
-        EditorGUILayout.LabelField($"Triangle: {t.TrinangleIndex}");
+        EditorGUILayout.LabelField($"Triangle: {t.TriangleIndex}");
         EditorGUILayout.LabelField($"Vertex: {t.VertexIndex}");
 
         serializedObject.ApplyModifiedProperties();

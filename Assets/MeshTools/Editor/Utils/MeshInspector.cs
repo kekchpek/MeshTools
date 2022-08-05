@@ -1,7 +1,7 @@
-﻿using MeshKnifeCore.Auxiliary;
+﻿using MeshTools.Auxiliary;
 using UnityEngine;
 
-namespace MeshKnifeCore.Utils
+namespace MeshTools.Editor.Utils
 {
     public class MeshInspector : MonoBehaviour
     {

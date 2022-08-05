@@ -1,0 +1,18 @@
+{
+    "name": "MeshToolsEditor",
+    "rootNamespace": "MeshTools.Editor",
+    "references": [
+        "GUID:eb8bf2f185691e348ad2794a974824a1"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

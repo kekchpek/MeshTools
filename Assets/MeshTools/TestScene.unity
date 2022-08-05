@@ -469,7 +469,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1117682509}
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 38.868, y: 0, z: 30.92}
+  m_LocalPosition: {x: 44.19, y: 0, z: 30.35}
   m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -698,14 +698,14 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1722228841}
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: -0, y: -0.3459991, z: -0, w: 0.93823487}
   m_LocalPosition: {x: 36.108, y: 0.15978944, z: 26.44}
   m_LocalScale: {x: 11.3876, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 2
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -40.486, z: 0}
 --- !u!114 &1722228847
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -754,7 +754,7 @@ MonoBehaviour:
   - {fileID: 1048830491}
   - {fileID: 14693894}
   - {fileID: 67534315}
-  _cutMeshFilter: {fileID: 1117682513}
+  _cutMeshFilter: {fileID: 1722228845}
   _cutMaterial: {fileID: 2100000, guid: d3f07d29b14eaf74f8f5ab6822be78bf, type: 2}
   _cutForce: 3
 --- !u!4 &1921693817

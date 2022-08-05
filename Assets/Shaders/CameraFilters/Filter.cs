@@ -1,11 +1,12 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 
-public class Filter : MonoBehaviour
+namespace Shaders.CameraFilters
 {
-    private void OnRenderImage(RenderTexture source, RenderTexture destination)
+    public class Filter : MonoBehaviour
     {
+        private void OnRenderImage(RenderTexture source, RenderTexture destination)
+        {
 
+        }
     }
 }

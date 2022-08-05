@@ -1,15 +1,15 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using MeshKnifeCore.Auxiliary;
+using MeshTools.Auxiliary;
 using UnityEngine;
 
-namespace MeshKnifeCore
+namespace MeshTools.MeshKnife
 {
-    public class MeshKnife : MonoBehaviour
+    public class MeshKnife : MonoBehaviour, IMeshKnife
     {
 
         const float Epsilon = 0.00001f;
-        
+
         private readonly struct VertexData
         {
             public Vector3 Coordinates { get; }
@@ -112,6 +112,11 @@ namespace MeshKnifeCore
                 _basePoints[i].position = cachedTransform.position;
                 _basePoints[i].parent = cachedTransform;
             }
+        }
+
+        public void SetCuttingMesh(MeshFilter meshFilter)
+        {
+            _cutMeshFilter = meshFilter;
         }
 
         public void Cut()
@@ -318,28 +323,16 @@ namespace MeshKnifeCore
                 }
             };
             var v0 = vertices[0];
+            vertices.RemoveAt(0);
             vertices.Sort((v1, v2) =>
             {
-                if (v1.Coordinates == v0.Coordinates)
-                    return -1;
-                if (v2.Coordinates == v0.Coordinates)
-                    return 1;
                 var cross = Vector3.Cross(v1.Coordinates - v0.Coordinates, v2.Coordinates - v0.Coordinates).normalized;
-                if (Vector3.Dot(cutNormal.normalized, cross) > 1 - Epsilon)
+                if (Vector3.Dot(cutNormal.normalized, cross) >= 1 - Epsilon)
                     return 1;
                 else
                     return -1;
             });
-            for (var i = 0; i < vertices.Count - 1; i++)
-            {
-                var edge1 = vertices[i + 1].Coordinates - vertices[i].Coordinates;
-                var edge2 = vertices[(i + 2) % vertices.Count].Coordinates - vertices[i].Coordinates;
-                if (Vector3.Dot(edge1.normalized, edge2.normalized) > 1 - Epsilon)
-                {
-                    vertices.RemoveAt(i + 1);
-                    i--;
-                }
-            }
+            vertices.Insert(0, v0);
             var sourceCutPlaneMeshFilter = cutPlaneObj.AddComponent<MeshFilter>();
             var sourceCutPlaneMesh = new Mesh();
             sourceCutPlaneMesh.Clear();

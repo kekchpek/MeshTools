@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using UnityEditor;
-using UnityEngine;
+
+// ReSharper disable once CheckNamespace
 public class CsprojPostprocessor : AssetPostprocessor
 {
     
@@ -8,7 +9,6 @@ public class CsprojPostprocessor : AssetPostprocessor
     {
         if (!path.EndsWith("Editor.csproj"))
         {
-            Debug.Log(path);
             var newContent = 
                 Regex.Replace(content, "<Reference Include=\"UnityEditor(.|\n)*?</Reference>", "");
 

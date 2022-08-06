@@ -2,10 +2,14 @@
 
 namespace MeshTools.MeshKnife.CutPlaneBuilder
 {
-    
     public class CutPlaneBuilder : ICutPlaneBuilder
     {
         public ICutPlaneBuilder AddEdge(Vector3 point1, Vector3 point2)
+        {
+            throw new System.NotImplementedException();
+        }
+
+        public ICutPlaneBuilder SetMaterial(Material material)
         {
             throw new System.NotImplementedException();
         }

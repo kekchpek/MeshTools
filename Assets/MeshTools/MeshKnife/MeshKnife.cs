@@ -1,9 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using MeshTools.Auxiliary;
+using MeshTools.MeshKnife;
 using UnityEngine;
+using UnityEngine.Assertions;
 
-namespace MeshTools.MeshKnife
+namespace MeshTools.MeshTools.MeshKnife
 {
     public class MeshKnife : MonoBehaviour, IMeshKnife
     {
@@ -46,7 +48,7 @@ namespace MeshTools.MeshKnife
                 }
                 else
                 {
-                    Debug.Assert(!(plane.GetSide(start.Coordinates) ^ plane.GetSide(end.Coordinates)));
+                    Assert.IsTrue(!(plane.GetSide(start.Coordinates) ^ plane.GetSide(end.Coordinates)));
                     intersection = default;
                     return false;
                 }
@@ -129,7 +131,7 @@ namespace MeshTools.MeshKnife
 
             var cutPlane = new Plane(_basePoints[0].position, _basePoints[1].position, _basePoints[2].position);
 
-            var intersectionPoints = new List<VertexData>();
+            var cutPlaneBuilder = new global::MeshTools.MeshKnife.CutPlaneBuilder.CutPlaneBuilder();
 
             var meshTransform = _cutMeshFilter.transform;
             var scale = meshTransform.lossyScale;
@@ -175,6 +177,7 @@ namespace MeshTools.MeshKnife
                     var intersectionIndices = new List<int>();
 
                     // find intersection points
+                    var intersectionPoints = new List<Vector3>();
                     for (var j = 0; j < polygon.Count; j++)
                     {
                         var next = (j + 1) % polygon.Count;
@@ -182,12 +185,14 @@ namespace MeshTools.MeshKnife
                         {
                             polygon.Insert(j + 1, intersection);
                             intersectionIndices.Add(j + 1);
-                            if(intersectionPoints.FindIndex(v =>
-                                intersection.Coordinates == v.Coordinates) < 0)
-                                intersectionPoints.Add(intersection);
+                            intersectionPoints.Add(intersection.Coordinates);
                             j++;
                         }
                     }
+
+                    cutPlaneBuilder.AddEdge(
+                        MathUtils.TransformVertexFromScaledRotatedOrigin(intersectionPoints[0], scale, Quaternion.identity, origin),
+                        MathUtils.TransformVertexFromScaledRotatedOrigin(intersectionPoints[1], scale, Quaternion.identity, origin));
 
                     Debug.Assert(polygon.Count == 5);
 
@@ -231,15 +236,6 @@ namespace MeshTools.MeshKnife
                     vertex.Side);
                 partOneVertices[i] = vertex;
             }
-            for (var i = 0; i < intersectionPoints.Count; i++)
-            {
-                var vertex = intersectionPoints[i];
-                vertex = new VertexData(MathUtils.TransformVertexFromScaledRotatedOrigin(vertex.Coordinates, scale, Quaternion.identity, origin),
-                    vertex.Normal,
-                    vertex.UV,
-                    vertex.Side);
-                intersectionPoints[i] = vertex;
-            }
 
             if (partTwoVertices.Count > 0 && partOneVertices.Count > 0)
             {
@@ -248,8 +244,9 @@ namespace MeshTools.MeshKnife
                 var material = _cutMeshFilter.GetComponent<MeshRenderer>().sharedMaterial;
                 var physicMaterial = _cutMeshFilter.GetComponent<Collider>()?.sharedMaterial;
 
-                var cutPlaneOneObj = CreateCutPlane(intersectionPoints, _cutMaterial, -cutPlane.normal);
-                var cutPlaneTwoObj = CreateCutPlane(intersectionPoints, _cutMaterial, cutPlane.normal);
+                cutPlaneBuilder.SetMaterial(_cutMaterial);
+                var cutPlaneOneObj = cutPlaneBuilder.Build();
+                var cutPlaneTwoObj = cutPlaneBuilder.Build();
 
                 CreateCutMeshObject(partTwoVertices, partTwoTriangles,
                     origin, scale,
@@ -310,46 +307,8 @@ namespace MeshTools.MeshKnife
 
             cutPlane.transform.parent = newMeshGameObject.transform;
             cutPlane.transform.localPosition = Vector3.zero;
+            cutPlane.transform.rotation = Quaternion.identity;
             cutPlane.transform.localScale = Vector3.one;
-        }
-
-        private static GameObject CreateCutPlane(List<VertexData> vertices, Material material, Vector3 cutNormal)
-        {
-            var cutPlaneObj = new GameObject("cutPlane")
-            {
-                transform =
-                {
-                    localPosition = Vector3.zero
-                }
-            };
-            var v0 = vertices[0];
-            vertices.RemoveAt(0);
-            vertices.Sort((v1, v2) =>
-            {
-                var cross = Vector3.Cross(v1.Coordinates - v0.Coordinates, v2.Coordinates - v0.Coordinates).normalized;
-                if (Vector3.Dot(cutNormal.normalized, cross) >= 1 - Epsilon)
-                    return 1;
-                else
-                    return -1;
-            });
-            vertices.Insert(0, v0);
-            var sourceCutPlaneMeshFilter = cutPlaneObj.AddComponent<MeshFilter>();
-            var sourceCutPlaneMesh = new Mesh();
-            sourceCutPlaneMesh.Clear();
-            sourceCutPlaneMesh.vertices = vertices.Select(v => v.Coordinates).ToArray();
-            var sourceCutMeshTriangles = new List<int>();
-            for (var i = 1; i < vertices.Count - 1; i++)
-            {
-                sourceCutMeshTriangles.Add(0);
-                sourceCutMeshTriangles.Add(i);
-                sourceCutMeshTriangles.Add(i + 1);
-            }
-            sourceCutPlaneMesh.triangles = sourceCutMeshTriangles.ToArray();
-            sourceCutPlaneMesh.normals = Enumerable.Repeat(cutNormal, vertices.Count).ToArray();
-            sourceCutPlaneMeshFilter.sharedMesh = sourceCutPlaneMesh;
-            var sourceCutPlaneMeshRenderer = cutPlaneObj.AddComponent<MeshRenderer>();
-            sourceCutPlaneMeshRenderer.material = material;
-            return cutPlaneObj;
         }
 
         private static void AddTriangle(ref List<VertexData> vertices, ref List<int> triangles, IReadOnlyCollection<VertexData> triangle)

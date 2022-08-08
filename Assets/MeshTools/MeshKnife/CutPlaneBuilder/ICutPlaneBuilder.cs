@@ -8,6 +8,6 @@ namespace MeshTools.MeshKnife.CutPlaneBuilder
 
         ICutPlaneBuilder SetMaterial(Material material);
 
-        GameObject Build(bool sideOfNormal);
+        GameObject Build();
     }
 }

@@ -1,4 +1,5 @@
-﻿using MeshTools.Auxiliary;
+﻿using System.Linq;
+using MeshTools.Auxiliary;
 using UnityEngine;
 
 namespace MeshTools.Editor.Utils
@@ -52,24 +53,33 @@ namespace MeshTools.Editor.Utils
 
             var m = new Mesh();
             m.Clear();
-            m.vertices = new[]
+            if (vertices.Any() && triangles.Any())
             {
-                MathUtils.TransformVertexToScaledRotatedOrigin(vertices[triangles[_triangle * 3]], scale, rotation, origin),
-                MathUtils.TransformVertexToScaledRotatedOrigin(vertices[triangles[_triangle * 3 + 1]], scale, rotation, origin),
-                MathUtils.TransformVertexToScaledRotatedOrigin(vertices[triangles[_triangle * 3 + 2]], scale, rotation, origin)
-            };
-            m.triangles = new[]
+                m.vertices = new[]
+                {
+                    MathUtils.TransformVertexToScaledRotatedOrigin(vertices[triangles[_triangle * 3]], scale, rotation,
+                        origin),
+                    MathUtils.TransformVertexToScaledRotatedOrigin(vertices[triangles[_triangle * 3 + 1]], scale,
+                        rotation, origin),
+                    MathUtils.TransformVertexToScaledRotatedOrigin(vertices[triangles[_triangle * 3 + 2]], scale,
+                        rotation, origin)
+                };
+                m.triangles = new[]
+                {
+                    0, 1, 2
+                };
+                m.normals = new Vector3[] {new(0, 1, 0), new(0, 1, 0), new(0, 1, 0)};
+                Gizmos.color = new Color(0, 0, 1);
+                Gizmos.DrawMesh(m);
+            }
+
+
+
+            if (vertices.Length > 0)
             {
-                0, 1, 2
-            };
-            m.normals = new Vector3[] { new(0, 1, 0), new(0, 1, 0), new(0, 1, 0) };
-            Gizmos.color = new Color(0, 0, 1);
-            Gizmos.DrawMesh(m);
-
-
-
-            Gizmos.DrawSphere(
-                MathUtils.TransformVertexToScaledRotatedOrigin(vertices[_vertex], scale, rotation, origin), 0.1f);
+                Gizmos.DrawSphere(
+                    MathUtils.TransformVertexToScaledRotatedOrigin(vertices[_vertex], scale, rotation, origin), 0.1f);
+            }
         }
     }
 }

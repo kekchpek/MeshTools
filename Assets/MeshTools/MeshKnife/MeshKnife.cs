@@ -1,127 +1,14 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using MeshTools.Auxiliary;
-using MeshTools.MeshKnife;
 using UnityEngine;
-using UnityEngine.Assertions;
 
-namespace MeshTools.MeshTools.MeshKnife
+namespace MeshTools.MeshKnife
 {
-    public class MeshKnife : MonoBehaviour, IMeshKnife
+    public class MeshKnife : IMeshKnife
     {
 
-        const float Epsilon = 0.00001f;
-
-        private readonly struct VertexData
-        {
-            public Vector3 Coordinates { get; }
-            public Vector3 Normal { get; }
-            public Vector2 UV { get; }
-            public bool Side { get; }
-
-            /// <summary>
-            /// Creates a data of a vertex in the context of mesh cutting.
-            /// </summary>
-            /// <param name="coordinates">Coordinates of the point.</param>
-            /// <param name="normal">Normal of the point.</param>
-            /// <param name="uv">UV coordinates of the point.</param>
-            /// <param name="side">Side of the point.</param>
-            public VertexData(Vector3 coordinates, Vector3 normal, Vector2 uv, bool side)
-            {
-                Coordinates = coordinates;
-                Normal = normal;
-                UV = uv;
-                Side = side;
-            }
-
-            public static bool RaycastPlane(VertexData start, VertexData end, Plane plane, Vector3 normal, out VertexData intersection)
-            {
-                var dir = end.Coordinates - start.Coordinates;
-                var r = new Ray(start.Coordinates, dir);
-                if (plane.Raycast(r, out var d) && d > 0 && d <= dir.magnitude)
-                {
-                    intersection = new VertexData(start.Coordinates + dir.normalized * d,
-                        normal,
-                        Vector3.Lerp(start.UV, end.UV, d / dir.magnitude),
-                        plane.GetSide(start.Coordinates + dir.normalized * d));
-                    return true;
-                }
-                else
-                {
-                    Assert.IsTrue(!(plane.GetSide(start.Coordinates) ^ plane.GetSide(end.Coordinates)));
-                    intersection = default;
-                    return false;
-                }
-            }
-
-            public override bool Equals(object obj)
-            {
-                return obj != null && obj.GetHashCode() == GetHashCode();
-            }
-
-            public override int GetHashCode()
-            {
-                return Normal.GetHashCode() + UV.GetHashCode() + Coordinates.GetHashCode() + Side.GetHashCode();
-            }
-        }
-
-        [SerializeField] private Transform[] _basePoints;
-
-        /// <summary>
-        /// Mesh to cut.
-        /// </summary>
-        [SerializeField] private MeshFilter _cutMeshFilter;
-
-        [SerializeField] private Material _cutMaterial;
-
-        [SerializeField] private float _cutForce;
-
-        public bool Initialized => _basePoints is {Length: 3};
-
-        private void OnDrawGizmos()
-        {
-            if (_basePoints == null)
-                return;
-
-            var m = new Mesh();
-            m.Clear();
-            m.vertices = new[]
-            {
-                _basePoints[0].position,
-                _basePoints[1].position,
-                _basePoints[2].position,
-            };
-            m.triangles = new[]
-            {
-                0, 1, 2,
-                2, 1, 0
-            };
-            m.normals = new[] { Vector3.up, Vector3.up, Vector3.up };
-            Gizmos.color = new Color(1, 0, 0);
-            Gizmos.DrawLine(_basePoints[0].position, _basePoints[1].position);
-            Gizmos.DrawLine(_basePoints[1].position, _basePoints[2].position);
-            Gizmos.DrawLine(_basePoints[2].position, _basePoints[0].position);
-            Gizmos.DrawMesh(m);
-        }
-
-        public void Initialize()
-        {
-            _basePoints = new Transform[3];
-            for (var i = 0; i < 3; i++)
-            {
-                _basePoints[i] = new GameObject($"BasePoint{i}").transform;
-                var cachedTransform = transform;
-                _basePoints[i].position = cachedTransform.position;
-                _basePoints[i].parent = cachedTransform;
-            }
-        }
-
-        public void SetCuttingMesh(MeshFilter meshFilter)
-        {
-            _cutMeshFilter = meshFilter;
-        }
-
-        public void Cut()
+        public void Cut(Plane cutPlane, MeshFilter cutMeshFilter, Material cutMaterial, float cutForce)
         {
             var partOneVertices = new List<VertexData>();
             var partOneTriangles = new List<int>();
@@ -129,16 +16,14 @@ namespace MeshTools.MeshTools.MeshKnife
             var partTwoVertices = new List<VertexData>();
             var partTwoTriangles = new List<int>();
 
-            var cutPlane = new Plane(_basePoints[0].position, _basePoints[1].position, _basePoints[2].position);
+            var cutPlaneBuilder = new CutPlaneBuilder.CutPlaneBuilder();
 
-            var cutPlaneBuilder = new global::MeshTools.MeshKnife.CutPlaneBuilder.CutPlaneBuilder();
-
-            var meshTransform = _cutMeshFilter.transform;
+            var meshTransform = cutMeshFilter.transform;
             var scale = meshTransform.lossyScale;
             var origin = meshTransform.position;
             var rotation = meshTransform.rotation;
 
-            var sourceMesh = _cutMeshFilter.sharedMesh;
+            var sourceMesh = cutMeshFilter.sharedMesh;
             
             // Pass through all triangles of the mesh
             for (var i = 0; i < sourceMesh.triangles.Length; i+=3)
@@ -239,28 +124,28 @@ namespace MeshTools.MeshTools.MeshKnife
 
             if (partTwoVertices.Count > 0 && partOneVertices.Count > 0)
             {
-                var createCollider = _cutMeshFilter.GetComponent<Collider>() != null;
-                var createRigidbody = _cutMeshFilter.GetComponent<Rigidbody>() != null;
-                var material = _cutMeshFilter.GetComponent<MeshRenderer>().sharedMaterial;
-                var physicMaterial = _cutMeshFilter.GetComponent<Collider>()?.sharedMaterial;
+                var createCollider = cutMeshFilter.GetComponent<Collider>() != null;
+                var createRigidbody = cutMeshFilter.GetComponent<Rigidbody>() != null;
+                var material = cutMeshFilter.GetComponent<MeshRenderer>().sharedMaterial;
+                var physicMaterial = cutMeshFilter.GetComponent<Collider>()?.sharedMaterial;
 
-                cutPlaneBuilder.SetMaterial(_cutMaterial);
+                cutPlaneBuilder.SetMaterial(cutMaterial);
                 var cutPlaneOneObj = cutPlaneBuilder.Build();
                 var cutPlaneTwoObj = cutPlaneBuilder.Build();
 
                 CreateCutMeshObject(partTwoVertices, partTwoTriangles,
                     origin, scale,
-                    -cutPlane.normal, _cutForce,
+                    -cutPlane.normal, cutForce,
                     createCollider, createRigidbody,
                     material, physicMaterial,
                     cutPlaneOneObj);
                 CreateCutMeshObject(partOneVertices, partOneTriangles,
                     origin, scale,
-                    cutPlane.normal, _cutForce,
+                    cutPlane.normal, cutForce,
                     createCollider, createRigidbody,
                     material, physicMaterial,
                     cutPlaneTwoObj);
-                DestroyImmediate(_cutMeshFilter.gameObject);
+                Object.DestroyImmediate(cutMeshFilter.gameObject);
             }
 
         }

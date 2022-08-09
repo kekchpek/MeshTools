@@ -1,25 +1,26 @@
 ﻿using System;
+using MeshTools.MeshKnife.Components;
 using UnityEditor;
 using UnityEngine;
 
 namespace MeshTools.MeshKnife.Editor
 {
-    [CustomEditor(typeof(global::MeshTools.MeshTools.MeshKnife.MeshKnife))]
+    [CustomEditor(typeof(MeshKnifeBehaviour))]
     [CanEditMultipleObjects]
     public class MeshKnifeEditor : UnityEditor.Editor
     {
 
         private const string AskCutConfirmationInEditModeKey = nameof(AskCutConfirmationInEditModeKey);
         
-        private static IMeshKnife _target;
+        private static IMeshKnifeBehaviour _target;
 
         private bool _askCutConfirmationInEditMode;
         
         private void Awake()
         {
-            _target = target as IMeshKnife;
+            _target = target as IMeshKnifeBehaviour;
             if (_target == null)
-                Debug.LogError($"Target is not a {nameof(MeshTools.MeshKnife.MeshKnife)}");
+                Debug.LogError($"Target is not a {nameof(MeshKnife)}");
             
             _askCutConfirmationInEditMode = Convert.ToBoolean(PlayerPrefs.GetInt(AskCutConfirmationInEditModeKey, 1));
         }
@@ -29,9 +30,14 @@ namespace MeshTools.MeshKnife.Editor
             base.OnInspectorGUI();
             serializedObject.Update();
 
-            if (!_target.Initialized && GUILayout.Button("Initialize"))
+            if (_target == null)
             {
-                _target.Initialize();
+                return;
+            }
+            
+            if (!_target.BasePointsSet && GUILayout.Button("Initialize"))
+            {
+                _target.CreateBasePoints();
             }
 
             var prevVal = _askCutConfirmationInEditMode;
@@ -43,9 +49,9 @@ namespace MeshTools.MeshKnife.Editor
                 PlayerPrefs.SetInt(AskCutConfirmationInEditModeKey, Convert.ToInt32(_askCutConfirmationInEditMode));
             }
 
-            if (_target.Initialized && GUILayout.Button("Cut"))
+            if (_target.BasePointsSet && GUILayout.Button("Cut"))
             {
-                if (_askCutConfirmationInEditMode)
+                if (Application.isEditor && !EditorApplication.isPlaying && _askCutConfirmationInEditMode)
                 {
                     if (EditorUtility.DisplayDialog("Confirm cut in edit mode", 
                         "Are you sure you want to cut a mesh in edit mode?", "Cut", "Cancel"))

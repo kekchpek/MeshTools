@@ -6,6 +6,6 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/MeshTools/TestScene.unity
+    path: Assets/MeshTools/MeshKnife/TestScene.unity
     guid: f64d2b3d7a700e8409c044131c7ddf4c
   m_configObjects: {}

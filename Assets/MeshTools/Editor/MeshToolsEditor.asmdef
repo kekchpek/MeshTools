@@ -1,6 +1,6 @@
 {
     "name": "MeshToolsEditor",
-    "rootNamespace": "MeshTools.Editor",
+    "rootNamespace": "MeshTools",
     "references": [
         "GUID:eb8bf2f185691e348ad2794a974824a1"
     ],

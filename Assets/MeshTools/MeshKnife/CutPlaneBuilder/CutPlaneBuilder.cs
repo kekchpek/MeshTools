@@ -7,10 +7,12 @@ namespace MeshTools.MeshKnife.CutPlaneBuilder
 {
     public class CutPlaneBuilder : ICutPlaneBuilder
     {
+        
+        private const string Tag = "CutPlane";
 
         private readonly IList<IList<Vector3>> _segments = new List<IList<Vector3>>();
 
-        private Material _planeMaterial = null;
+        private Material _planeMaterial;
 
         public ICutPlaneBuilder AddEdge(Vector3 point1, Vector3 point2)
         {

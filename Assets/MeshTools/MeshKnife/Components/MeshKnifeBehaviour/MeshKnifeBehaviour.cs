@@ -2,7 +2,7 @@
 using System.Linq;
 using UnityEngine;
 
-namespace MeshTools.MeshKnife.Components
+namespace MeshTools.MeshKnife.Components.MeshKnifeBehaviour
 {
     public class MeshKnifeBehaviour : MonoBehaviour, IMeshKnifeBehaviour
     {
@@ -35,7 +35,7 @@ namespace MeshTools.MeshKnife.Components
         {
             if (BasePointsSet)
             {
-                new MeshKnife()
+                StaticMeshKnife
                     .Cut(new Plane(_basePoints[0].position, _basePoints[1].position, _basePoints[2].position),
                         _cutMeshFilter,
                         _cutMaterial, _cutForce);

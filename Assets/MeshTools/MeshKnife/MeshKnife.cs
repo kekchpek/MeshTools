@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using MeshTools.Auxiliary;
+using MeshTools.MeshKnife.CutPlaneBuilder;
 using UnityEngine;
 
 namespace MeshTools.MeshKnife
@@ -16,7 +17,7 @@ namespace MeshTools.MeshKnife
             var partTwoVertices = new List<VertexData>();
             var partTwoTriangles = new List<int>();
 
-            var cutPlaneBuilder = new CutPlaneBuilder.CutPlaneBuilder();
+            ICutPlaneBuilder cutPlaneBuilder = new CutPlaneBuilder.CutPlaneBuilder();
 
             var meshTransform = cutMeshFilter.transform;
             var scale = meshTransform.lossyScale;

@@ -1,5 +1,6 @@
 ﻿using System;
 using MeshTools.MeshKnife.Components;
+using MeshTools.MeshKnife.Components.MeshKnifeBehaviour;
 using UnityEditor;
 using UnityEngine;
 

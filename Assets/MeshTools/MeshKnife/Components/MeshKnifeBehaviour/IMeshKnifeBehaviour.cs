@@ -1,4 +1,4 @@
-﻿namespace MeshTools.MeshKnife.Components
+﻿namespace MeshTools.MeshKnife.Components.MeshKnifeBehaviour
 {
     public interface IMeshKnifeBehaviour
     {

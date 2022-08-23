@@ -4,11 +4,11 @@ namespace MeshTools.MeshKnife
 {
     public static class StaticMeshKnife
     {
-        private static readonly IMeshKnife _meshKnife = new MeshKnife();
+        private static readonly IMeshKnife MeshKnife = new MeshKnife();
 
         public static void Cut(Plane cutPlane, MeshFilter cutMeshFilter, Material cutMaterial, float cutForce)
         {
-            _meshKnife.Cut(cutPlane, cutMeshFilter, cutMaterial, cutForce);
+            MeshKnife.Cut(cutPlane, cutMeshFilter, cutMaterial, cutForce);
         }
     }
 }

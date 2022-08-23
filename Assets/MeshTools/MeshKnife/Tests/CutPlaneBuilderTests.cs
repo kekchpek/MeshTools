@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using MeshTools.MeshKnife.CutPlaneBuilder;
 using ModestTree;
 using NUnit.Framework;

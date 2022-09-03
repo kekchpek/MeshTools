@@ -1,6 +1,6 @@
 ﻿namespace MeshTools.MeshKnife.Components.MeshKnifeBehaviour
 {
-    public interface IMeshKnifeBehaviour
+    public interface ISlicerBehaviour
     {
         bool BasePointsSet { get; }
 

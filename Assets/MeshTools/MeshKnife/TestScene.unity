@@ -602,31 +602,15 @@ GameObject:
   - component: {fileID: 1722228845}
   - component: {fileID: 1722228844}
   - component: {fileID: 1722228843}
-  - component: {fileID: 1722228842}
   - component: {fileID: 1722228847}
+  - component: {fileID: 1722228848}
   m_Layer: 0
-  m_Name: newMesh
+  m_Name: SourceMesh
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!54 &1722228842
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1722228841}
-  serializedVersion: 2
-  m_Mass: 1
-  m_Drag: 0
-  m_AngularDrag: 0.05
-  m_UseGravity: 1
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 0
-  m_CollisionDetection: 0
 --- !u!64 &1722228843
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -698,14 +682,14 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1722228841}
-  m_LocalRotation: {x: -0, y: -0.3459991, z: -0, w: 0.93823487}
-  m_LocalPosition: {x: 36.108, y: 0.15978944, z: 26.44}
+  m_LocalRotation: {x: -0, y: -0.16852714, z: -0, w: 0.98569703}
+  m_LocalPosition: {x: 36.108, y: 0.6, z: 26.44}
   m_LocalScale: {x: 11.3876, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 2
-  m_LocalEulerAnglesHint: {x: 0, y: -40.486, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: -19.404, z: 0}
 --- !u!114 &1722228847
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -721,6 +705,22 @@ MonoBehaviour:
   _triangle: 11
   _vertex: 19
   _meshFilter: {fileID: 1722228845}
+--- !u!54 &1722228848
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1722228841}
+  serializedVersion: 2
+  m_Mass: 1
+  m_Drag: 0
+  m_AngularDrag: 0.05
+  m_UseGravity: 1
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
 --- !u!1 &1921693815
 GameObject:
   m_ObjectHideFlags: 0
@@ -772,6 +772,4 @@ MonoBehaviour:
   - {fileID: 1556810655}
   - {fileID: 374049104}
   - {fileID: 884225794}
-  _cutMeshFilter: {fileID: 1722228845}
-  _cutMaterial: {fileID: 2100000, guid: d3f07d29b14eaf74f8f5ab6822be78bf, type: 2}
-  _cutForce: 3
+  _cutObject: {fileID: 1722228841}

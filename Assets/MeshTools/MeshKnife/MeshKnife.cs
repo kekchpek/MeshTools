@@ -9,7 +9,8 @@ namespace MeshTools.MeshKnife
     public class MeshKnife : IMeshKnife
     {
 
-        public void Cut(Plane cutPlane, MeshFilter cutMeshFilter, Material cutMaterial, float cutForce)
+        public void Cut(Plane cutPlane, Mesh cutMesh, Vector3 meshScale, Quaternion meshRotation,
+            Vector3 meshOrigin, out Mesh[] meshesFromPositiveSide, out Mesh[] meshesFromNegativeSide)
         {
             var partOneVertices = new List<VertexData>();
             var partOneTriangles = new List<int>();
@@ -19,12 +20,7 @@ namespace MeshTools.MeshKnife
 
             ICutPlaneBuilder cutPlaneBuilder = new CutPlaneBuilder.CutPlaneBuilder();
 
-            var meshTransform = cutMeshFilter.transform;
-            var scale = meshTransform.lossyScale;
-            var origin = meshTransform.position;
-            var rotation = meshTransform.rotation;
-
-            var sourceMesh = cutMeshFilter.sharedMesh;
+            var sourceMesh = cutMesh;
             
             // Pass through all triangles of the mesh
             for (var i = 0; i < sourceMesh.triangles.Length; i+=3)
@@ -36,7 +32,8 @@ namespace MeshTools.MeshKnife
                 {
                     var vertexIndex = sourceMesh.triangles[i + j];
                     var coordinates = sourceMesh.vertices[vertexIndex];
-                    var realCoordinates = MathUtils.TransformVertexToScaledRotatedOrigin(coordinates, scale, rotation, origin);
+                    var realCoordinates = MathUtils.TransformVertexToScaledRotatedOrigin(coordinates,
+                        meshScale, meshRotation, meshOrigin);
                     var vertex = new VertexData(
                         realCoordinates,
                         sourceMesh.normals[vertexIndex],
@@ -77,8 +74,10 @@ namespace MeshTools.MeshKnife
                     }
 
                     cutPlaneBuilder.AddEdge(
-                        MathUtils.TransformVertexFromScaledRotatedOrigin(intersectionPoints[0], scale, Quaternion.identity, origin),
-                        MathUtils.TransformVertexFromScaledRotatedOrigin(intersectionPoints[1], scale, Quaternion.identity, origin));
+                        MathUtils.TransformVertexFromScaledRotatedOrigin(intersectionPoints[0], meshScale,
+                            meshRotation, meshOrigin),
+                        MathUtils.TransformVertexFromScaledRotatedOrigin(intersectionPoints[1], meshScale,
+                            meshRotation, meshOrigin));
 
                     Debug.Assert(polygon.Count == 5);
 
@@ -103,11 +102,12 @@ namespace MeshTools.MeshKnife
                     }
                 }
             }
-        
+            
             for (var i = 0; i < partTwoVertices.Count; i++)
             {
                 var vertex = partTwoVertices[i];
-                vertex = new VertexData(MathUtils.TransformVertexFromScaledRotatedOrigin(vertex.Coordinates, scale, Quaternion.identity, origin),
+                vertex = new VertexData(MathUtils.TransformVertexFromScaledRotatedOrigin(vertex.Coordinates, 
+                        meshScale, meshRotation, meshOrigin),
                     vertex.Normal,
                     vertex.UV,
                     vertex.Side);
@@ -116,85 +116,53 @@ namespace MeshTools.MeshKnife
             for (var i = 0; i < partOneVertices.Count; i++)
             {
                 var vertex = partOneVertices[i];
-                vertex = new VertexData(MathUtils.TransformVertexFromScaledRotatedOrigin(vertex.Coordinates, scale, Quaternion.identity, origin),
+                vertex = new VertexData(MathUtils.TransformVertexFromScaledRotatedOrigin(vertex.Coordinates, 
+                        meshScale, meshRotation, meshOrigin),
                     vertex.Normal,
                     vertex.UV,
                     vertex.Side);
                 partOneVertices[i] = vertex;
             }
-
-            if (partTwoVertices.Count > 0 && partOneVertices.Count > 0)
+            
+            var positiveSideMeshes = new List<Mesh>();
+            var negativeSideMeshes = new List<Mesh>();
+            if (partOneVertices.Count > 0)
             {
-                var createCollider = cutMeshFilter.GetComponent<Collider>() != null;
-                var createRigidbody = cutMeshFilter.GetComponent<Rigidbody>() != null;
-                var material = cutMeshFilter.GetComponent<MeshRenderer>().sharedMaterial;
-                var physicMaterial = cutMeshFilter.GetComponent<Collider>()?.sharedMaterial;
-
-                cutPlaneBuilder.SetMaterial(cutMaterial);
-                var cutPlaneOneObj = cutPlaneBuilder.Build();
-                var cutPlaneTwoObj = cutPlaneBuilder.Build();
-
-                CreateCutMeshObject(partTwoVertices, partTwoTriangles,
-                    origin, scale,
-                    -cutPlane.normal, cutForce,
-                    createCollider, createRigidbody,
-                    material, physicMaterial,
-                    cutPlaneOneObj);
-                CreateCutMeshObject(partOneVertices, partOneTriangles,
-                    origin, scale,
-                    cutPlane.normal, cutForce,
-                    createCollider, createRigidbody,
-                    material, physicMaterial,
-                    cutPlaneTwoObj);
-                Object.DestroyImmediate(cutMeshFilter.gameObject);
+                if (partOneVertices.First().Side)
+                {
+                    positiveSideMeshes.Add(CreateMesh(partOneVertices, partOneTriangles));
+                }
+                else
+                {
+                    negativeSideMeshes.Add(CreateMesh(partOneVertices, partOneTriangles));
+                }
             }
 
+            if (partTwoVertices.Count > 0)
+            {
+                if (partTwoVertices.First().Side)
+                {
+                    positiveSideMeshes.Add(CreateMesh(partTwoVertices, partTwoTriangles));
+                }
+                else
+                {
+                    negativeSideMeshes.Add(CreateMesh(partTwoVertices, partTwoTriangles));
+                }
+            }
+
+            meshesFromPositiveSide = positiveSideMeshes.ToArray();
+            meshesFromNegativeSide = negativeSideMeshes.ToArray();
         }
 
-        private static void CreateCutMeshObject(List<VertexData> vertices, List<int> triangles,
-            Vector3 position, Vector3 scale,
-            Vector3 cutNormal, float cutForce,
-            bool createCollider, bool createRigidbody,
-            Material material, PhysicMaterial physicMaterial,
-            GameObject cutPlane)
+        private static Mesh CreateMesh(List<VertexData> vertices, List<int> triangles)
         {
-            var newMeshGameObject = new GameObject("newMesh")
-            {
-                transform =
-                {
-                    position = position
-                }
-            };
-            newMeshGameObject.transform.position += cutNormal * 0.01f;
-            newMeshGameObject.transform.localScale = scale;
-            var newMeshFilter = newMeshGameObject.AddComponent<MeshFilter>();
-            newMeshFilter.sharedMesh = new Mesh
+            return new Mesh
             {
                 vertices = vertices.Select(v => v.Coordinates).ToArray(),
                 triangles = triangles.ToArray(),
                 uv = vertices.Select(v => v.UV).ToArray(),
                 normals = vertices.Select(v => v.Normal).ToArray()
             };
-            var newMeshRenderer = newMeshGameObject.AddComponent<MeshRenderer>();
-            newMeshRenderer.sharedMaterial = material;
-            if (createCollider)
-            {
-                var newMeshCollider = newMeshGameObject.AddComponent<MeshCollider>();
-                newMeshCollider.sharedMesh = newMeshFilter.sharedMesh;
-                newMeshCollider.sharedMaterial = physicMaterial;
-                newMeshCollider.convex = true;
-            }
-
-            if (createRigidbody)
-            {
-                var newMeshRigidbody = newMeshGameObject.AddComponent<Rigidbody>();
-                newMeshRigidbody.velocity = cutNormal * cutForce;
-            }
-
-            cutPlane.transform.parent = newMeshGameObject.transform;
-            cutPlane.transform.localPosition = Vector3.zero;
-            cutPlane.transform.rotation = Quaternion.identity;
-            cutPlane.transform.localScale = Vector3.one;
         }
 
         private static void AddTriangle(ref List<VertexData> vertices, ref List<int> triangles, IReadOnlyCollection<VertexData> triangle)

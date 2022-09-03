@@ -1,23 +1,28 @@
 ﻿using System;
 using System.Linq;
+using MeshTools.MeshKnife.Components.MeshKnifeBehaviour;
+using MeshTools.Slicer.SlicingStrategies;
+using MeshTools.Slicer.SlicingStrategies.Builder;
 using UnityEngine;
 
-namespace MeshTools.MeshKnife.Components.MeshKnifeBehaviour
+namespace MeshTools.MeshKnife.Components.SlicerBehaviour
 {
-    public class MeshKnifeBehaviour : MonoBehaviour, IMeshKnifeBehaviour
+    public class SlicerBehaviour : MonoBehaviour, ISlicerBehaviour
     {
         [SerializeField] private Transform[] _basePoints;
 
         /// <summary>
-        /// Mesh to cut.
+        /// Object to cut.
         /// </summary>
-        [SerializeField] private MeshFilter _cutMeshFilter;
-
-        [SerializeField] private Material _cutMaterial;
-
-        [SerializeField] private float _cutForce;
+        [SerializeField] private GameObject _cutObject;
 
         public bool BasePointsSet => _basePoints is {Length: 3} && _basePoints.All(x => x != null);
+        
+        private readonly ISlicingStrategy _slicingStrategy = new SlicingStrategyBuilder()
+            .SetSlicer(new Slicer.Slicer())
+            .SliceColliders()
+            .SliceRigidbodies()
+            .Build();
 
         public void CreateBasePoints()
         {
@@ -35,10 +40,8 @@ namespace MeshTools.MeshKnife.Components.MeshKnifeBehaviour
         {
             if (BasePointsSet)
             {
-                StaticMeshKnife
-                    .Cut(new Plane(_basePoints[0].position, _basePoints[1].position, _basePoints[2].position),
-                        _cutMeshFilter,
-                        _cutMaterial, _cutForce);
+                var cutPlane = new Plane(_basePoints[0].position, _basePoints[1].position, _basePoints[2].position);
+                _slicingStrategy.Cut(_cutObject, cutPlane);
             }
             else
             {

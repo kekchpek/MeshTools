@@ -1,25 +1,26 @@
 ﻿using System;
 using MeshTools.MeshKnife.Components;
 using MeshTools.MeshKnife.Components.MeshKnifeBehaviour;
+using MeshTools.MeshKnife.Components.SlicerBehaviour;
 using UnityEditor;
 using UnityEngine;
 
 namespace MeshTools.MeshKnife.Editor
 {
-    [CustomEditor(typeof(MeshKnifeBehaviour))]
+    [CustomEditor(typeof(SlicerBehaviour))]
     [CanEditMultipleObjects]
     public class MeshKnifeEditor : UnityEditor.Editor
     {
 
         private const string AskCutConfirmationInEditModeKey = nameof(AskCutConfirmationInEditModeKey);
         
-        private static IMeshKnifeBehaviour _target;
+        private static ISlicerBehaviour _target;
 
         private bool _askCutConfirmationInEditMode;
         
         private void Awake()
         {
-            _target = target as IMeshKnifeBehaviour;
+            _target = target as ISlicerBehaviour;
             if (_target == null)
                 Debug.LogError($"Target is not a {nameof(MeshKnife)}");
             

@@ -30,12 +30,6 @@ namespace MeshTools.Slicer.SlicingParameters
             Func<GameObject, bool> precondition = null) where T : Component;
 
         /// <summary>
-        /// Do not create objects to fill holes in cut meshes. In places where them was cut.
-        /// </summary>
-        /// <returns></returns>
-        ISlicingParameters DoNotCreateCutPlanes();
-
-        /// <summary>
         /// Handler for source cut objects with meshes after cut operation.
         /// </summary>
         /// <returns></returns>

@@ -10,6 +10,5 @@ namespace MeshTools.Slicer.SlicingParameters
         IEnumerable<(Type componentType, Action<object, GameObject> componentInitializer, Func<GameObject, bool> precondition)>
             ComponentsForNewObjects { get; }
         Action<GameObject> HandlerForChangedObjects { get; }
-        bool CreateCutPlanes { get; }
     }
 }
